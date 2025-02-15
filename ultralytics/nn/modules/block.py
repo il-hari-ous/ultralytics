@@ -29,6 +29,7 @@ __all__ = (
     "C3TR",
     "C3Ghost",
     "GhostBottleneck",
+    "SimGhostBottleneck",
     "Bottleneck",
     "BottleneckCSP",
     "Proto",
@@ -355,6 +356,33 @@ class GhostBottleneck(nn.Module):
         """Applies skip connection and concatenation to input tensor."""
         return self.conv(x) + self.shortcut(x)
 
+class SimGhostBottleneck(nn.Module):
+    """Simplified Ghost Bottleneck with reduced complexity for faster inference."""
+
+    def __init__(self, c1, c2, k=3, s=1):
+        """
+        Args:
+            c1: Number of input channels.
+            c2: Number of output channels.
+            k: Kernel size.
+            s: Stride.
+        """
+        super().__init__()
+        c_ = c2 // 2
+        self.conv = nn.Sequential(
+            GhostConv(c1, c_, 1, 1),  # Pointwise Ghost Convolution
+            DWConv(c_, c_, k, s, act=False) if s == 2 else nn.Identity(),  # Depthwise Convolution (only if stride=2)
+            GhostConv(c_, c2, 1, 1, act=False),  # Final Ghost Convolution
+        )
+        
+        # **Optimized shortcut connection**
+        self.shortcut = (
+            Conv(c1, c2, 1, 1, act=False) if s == 2 else nn.Identity()
+        )
+
+    def forward(self, x):
+        """Applies shortcut and Ghost convolution."""
+        return self.conv(x) + self.shortcut(x)
 
 class Bottleneck(nn.Module):
     """Standard bottleneck."""
