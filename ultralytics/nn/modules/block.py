@@ -16,6 +16,7 @@ __all__ = (
     "HGStem",
     "SPP",
     "SPPF",
+    "SimSPPF",
     "C1",
     "C2",
     "C3",
@@ -166,7 +167,30 @@ class SPP(nn.Module):
         x = self.cv1(x)
         return self.cv2(torch.cat([x] + [m(x) for m in self.m], 1))
 
+class SimSPPF(nn.Module):
+    """Simplified Spatial Pyramid Pooling - Fast (SimSPPF) layer for YOLO."""
 
+    def __init__(self, c1, c2, k=5):
+        """
+        Initializes the SimSPPF layer with fewer pooling layers for efficiency.
+        
+        Args:
+            c1: Number of input channels.
+            c2: Number of output channels.
+            k: Kernel size for pooling.
+        """
+        super().__init__()
+        c_ = c1 // 2  # Reduced hidden channels for efficiency
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.cv2 = Conv(c_ * 2, c2, 1, 1)  # Adjusted output channels
+        self.m = nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
+
+    def forward(self, x):
+        """Forward pass using a simplified pooling mechanism."""
+        y = self.cv1(x)
+        pooled = self.m(y)  # Single pooling instead of multiple
+        return self.cv2(torch.cat((y, pooled), 1)) 
+        
 class SPPF(nn.Module):
     """Spatial Pyramid Pooling - Fast (SPPF) layer for YOLOv5 by Glenn Jocher."""
 
